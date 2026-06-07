@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
+import ConfettiEffect from "@/components/ConfettiEffect";
 
 interface LeaderboardEntry {
   id: string;
@@ -41,204 +42,187 @@ export default async function LeaderboardPage() {
 
   const { tournament, rows } = await fetchLeaderboard();
 
+  const currentUserRank = currentUserId
+    ? rows.findIndex((r) => r.user_id === currentUserId) + 1
+    : 0;
+
   return (
-    <main className="min-h-screen px-4 py-12">
-      <div className="mx-auto max-w-2xl">
+    <main style={{ minHeight: "100vh", padding: "0 24px" }}>
+      {currentUserRank >= 1 && currentUserRank <= 3 && (
+        <ConfettiEffect rank={currentUserRank} />
+      )}
+
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
 
         {/* Header */}
-        <div className="mb-10 flex items-start justify-between gap-4">
-          <div>
-            <p
-              className="mb-1 text-xs font-semibold uppercase tracking-widest"
-              style={{ color: "var(--accent)" }}
+        <div style={{ paddingTop: 64, paddingBottom: 40, borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+            <div>
+              {tournament && (
+                <p style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--accent)", marginBottom: 8 }}>
+                  {tournament}
+                </p>
+              )}
+              <h1
+                style={{
+                  fontFamily: "var(--font-bebas)",
+                  fontSize: "clamp(56px, 12vw, 96px)",
+                  letterSpacing: "0.04em",
+                  lineHeight: 0.9,
+                  color: "white",
+                  margin: 0,
+                }}
+              >
+                LEADERBOARD
+              </h1>
+              {/* Green rule */}
+              <div style={{ width: 36, height: 2, background: "var(--accent)", marginTop: 14 }} />
+            </div>
+            <Link
+              href="/dashboard"
+              style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                textDecoration: "none",
+                paddingTop: 8,
+                whiteSpace: "nowrap",
+              }}
             >
-              {tournament ?? "No tournament"}
-            </p>
-            <h1 className="font-display text-5xl tracking-wide text-white">LEADERBOARD</h1>
+              ← Dashboard
+            </Link>
           </div>
-          <Link
-            href="/dashboard"
-            className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-all"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              color: "var(--muted)",
-            }}
-          >
-            ← Dashboard
-          </Link>
         </div>
 
         {!tournament ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
+          <p style={{ fontSize: 13, color: "var(--muted)", padding: "40px 0" }}>
             No active tournament found.
           </p>
         ) : rows.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
+          <p style={{ fontSize: 13, color: "var(--muted)", padding: "40px 0" }}>
             No entries yet. Be the first to submit picks!
           </p>
         ) : (
           <>
             {/* Desktop table */}
-            <div
-              className="hidden overflow-hidden rounded-2xl sm:block"
-              style={{ border: "1px solid var(--border)" }}
-            >
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
-                    <th
-                      className="w-16 px-5 py-4 text-left text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "var(--muted)" }}
+            <table className="hidden sm:table" style={{ width: "100%", borderCollapse: "collapse", marginTop: 32 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <th style={{ width: 56, padding: "0 16px 14px 0", textAlign: "left", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555" }}>
+                    #
+                  </th>
+                  <th style={{ padding: "0 16px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555" }}>
+                    Player
+                  </th>
+                  <th style={{ padding: "0 0 14px", textAlign: "right", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555" }}>
+                    Points
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((entry, index) => {
+                  const rank = index + 1;
+                  const isMe = entry.user_id === currentUserId;
+                  return (
+                    <tr
+                      key={entry.id}
+                      style={{
+                        borderBottom: "1px solid var(--border)",
+                        background: isMe ? "rgba(0,212,106,0.04)" : "transparent",
+                      }}
                     >
-                      Rank
-                    </th>
-                    <th
-                      className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "var(--muted)" }}
-                    >
-                      Player
-                    </th>
-                    <th
-                      className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "var(--muted)" }}
-                    >
-                      Points
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((entry, index) => {
-                    const rank = index + 1;
-                    const isMe = entry.user_id === currentUserId;
-                    const isEven = index % 2 === 0;
-                    return (
-                      <tr
-                        key={entry.id}
-                        style={{
-                          borderBottom: index < rows.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                          background: isMe
-                            ? "rgba(0,255,135,0.06)"
-                            : isEven
-                              ? "rgba(255,255,255,0.01)"
-                              : "transparent",
-                        }}
-                      >
-                        <td className="px-5 py-4">
-                          <RankBadge rank={rank} />
-                        </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className="font-medium"
-                            style={{ color: isMe ? "var(--accent)" : "var(--foreground)" }}
-                          >
-                            {entry.email}
+                      <td style={{ padding: "14px 16px 14px 0", verticalAlign: "middle" }}>
+                        <RankLabel rank={rank} />
+                      </td>
+                      <td style={{ padding: "14px 16px", verticalAlign: "middle" }}>
+                        <span style={{ fontSize: 14, color: isMe ? "var(--accent)" : "#e8e8ed" }}>
+                          {entry.email}
+                        </span>
+                        {isMe && (
+                          <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent)", marginLeft: 10 }}>
+                            you
                           </span>
-                          {isMe && (
-                            <span
-                              className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider"
-                              style={{
-                                background: "rgba(0,255,135,0.12)",
-                                color: "var(--accent)",
-                                border: "1px solid rgba(0,255,135,0.2)",
-                              }}
-                            >
-                              You
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="px-5 py-4 text-right font-display text-xl tracking-wide tabular-nums"
-                          style={{ color: isMe ? "var(--accent)" : "var(--foreground)" }}
+                        )}
+                      </td>
+                      <td style={{ padding: "14px 0", textAlign: "right", verticalAlign: "middle" }}>
+                        <span
+                          style={{
+                            fontFamily: "var(--font-bebas)",
+                            fontSize: 22,
+                            letterSpacing: "0.04em",
+                            color: isMe ? "var(--accent)" : "#e8e8ed",
+                          }}
                         >
                           {entry.total_points.toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
             {/* Mobile list */}
-            <div className="space-y-2 sm:hidden">
+            <div className="sm:hidden" style={{ marginTop: 32 }}>
               {rows.map((entry, index) => {
                 const rank = index + 1;
                 const isMe = entry.user_id === currentUserId;
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center gap-3 rounded-xl px-4 py-3.5"
                     style={{
-                      background: isMe ? "rgba(0,255,135,0.06)" : "var(--surface)",
-                      border: `1px solid ${isMe ? "rgba(0,255,135,0.2)" : "var(--border)"}`,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "14px 0",
+                      borderBottom: "1px solid var(--border)",
+                      background: isMe ? "rgba(0,212,106,0.04)" : "transparent",
                     }}
                   >
-                    <div className="w-8 shrink-0">
-                      <RankBadge rank={rank} />
+                    <div style={{ width: 28, flexShrink: 0 }}>
+                      <RankLabel rank={rank} />
                     </div>
-                    <p
-                      className="min-w-0 flex-1 truncate text-sm font-medium"
-                      style={{ color: isMe ? "var(--accent)" : "var(--foreground)" }}
-                    >
+                    <p style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: isMe ? "var(--accent)" : "#e8e8ed", margin: 0 }}>
                       {entry.email}
-                      {isMe && <span className="ml-1.5 text-xs opacity-60">(you)</span>}
+                      {isMe && <span style={{ fontSize: 10, color: "var(--accent)", marginLeft: 8, opacity: 0.7 }}>(you)</span>}
                     </p>
-                    <p
-                      className="shrink-0 font-display text-xl tabular-nums"
-                      style={{ color: isMe ? "var(--accent)" : "var(--foreground)" }}
+                    <span
+                      style={{
+                        fontFamily: "var(--font-bebas)",
+                        fontSize: 20,
+                        letterSpacing: "0.04em",
+                        flexShrink: 0,
+                        color: isMe ? "var(--accent)" : "#e8e8ed",
+                      }}
                     >
                       {entry.total_points.toLocaleString()}
-                    </p>
+                    </span>
                   </div>
                 );
               })}
             </div>
           </>
         )}
+
+        <div style={{ height: 64 }} />
       </div>
     </main>
   );
 }
 
-function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) {
-    return (
-      <span
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold"
-        style={{ background: "rgba(255,215,0,0.15)", color: "var(--gold)", border: "1px solid rgba(255,215,0,0.3)" }}
-        title="1st place"
-      >
-        1
-      </span>
-    );
-  }
-  if (rank === 2) {
-    return (
-      <span
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold"
-        style={{ background: "rgba(184,188,200,0.12)", color: "var(--silver)", border: "1px solid rgba(184,188,200,0.25)" }}
-        title="2nd place"
-      >
-        2
-      </span>
-    );
-  }
-  if (rank === 3) {
-    return (
-      <span
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full font-display text-base font-bold"
-        style={{ background: "rgba(205,127,50,0.12)", color: "var(--bronze)", border: "1px solid rgba(205,127,50,0.25)" }}
-        title="3rd place"
-      >
-        3
-      </span>
-    );
-  }
+function RankLabel({ rank }: { rank: number }) {
+  const color =
+    rank === 1 ? "var(--gold)"
+    : rank === 2 ? "var(--silver)"
+    : rank === 3 ? "var(--bronze)"
+    : "var(--muted)";
   return (
     <span
-      className="font-display text-base tabular-nums"
-      style={{ color: "var(--muted)" }}
+      style={{
+        fontFamily: "var(--font-bebas)",
+        fontSize: rank <= 3 ? 18 : 15,
+        letterSpacing: "0.04em",
+        color,
+      }}
     >
       {rank}
     </span>

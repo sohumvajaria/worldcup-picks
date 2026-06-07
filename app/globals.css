@@ -2,53 +2,82 @@
 
 @theme inline {
   --color-background: #0a0a0f;
-  --color-surface: #12121a;
-  --color-surface-2: #1c1c2e;
-  --color-accent: #00ff87;
-  --color-orange: #ff6b35;
-  --color-foreground: #f0f0f5;
+  --color-surface: #0d0d12;
+  --color-surface-2: #111116;
+  --color-accent: #00d46a;
+  --color-orange: #e85d2f;
+  --color-foreground: #e8e8ed;
   --font-sans: var(--font-inter);
   --font-display: var(--font-bebas);
 }
 
 :root {
-  --accent: #00ff87;
-  --orange: #ff6b35;
-  --surface: #12121a;
-  --surface-2: #1c1c2e;
-  --border: rgba(255, 255, 255, 0.07);
-  --muted: rgba(240, 240, 245, 0.42);
-  --gold: #ffd700;
-  --silver: #b8bcc8;
-  --bronze: #cd7f32;
+  --accent: #00d46a;
+  --orange: #e85d2f;
+  --surface: #0d0d12;
+  --surface-2: #111116;
+  --border: #1a1a1a;
+  --muted: #888;
+  --gold: #c8a84b;
+  --silver: #8a8e98;
+  --bronze: #8c5e2a;
 }
 
 body {
   background-color: #0a0a0f;
-  background-image:
-    radial-gradient(ellipse at 15% 65%, rgba(0, 255, 135, 0.045) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 15%, rgba(255, 107, 53, 0.035) 0%, transparent 50%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 59px,
-      rgba(255, 255, 255, 0.016) 59px,
-      rgba(255, 255, 255, 0.016) 60px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 59px,
-      rgba(255, 255, 255, 0.016) 59px,
-      rgba(255, 255, 255, 0.016) 60px
-    );
-  background-attachment: fixed;
-  color: #f0f0f5;
+  color: #e8e8ed;
   font-family: var(--font-inter), system-ui, sans-serif;
   min-height: 100vh;
 }
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* Grain texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.038;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #0a0a0f; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.14); }
+::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2a2a; }
+
+/* Custom cursor */
+body.custom-cursor,
+body.custom-cursor * {
+  cursor: none !important;
+}
+
+/* Pick selection cards */
+.pick-card {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.12s ease, background 0.12s ease;
+  width: 100%;
+  text-align: left;
+}
+.pick-card:hover:not(:disabled):not([data-selected="true"]):not([data-current="true"]):not([data-target="true"]) {
+  border-color: var(--accent);
+}
+.pick-card[data-selected="true"] {
+  border-color: var(--accent);
+  background: rgba(0, 212, 106, 0.06);
+}
+.pick-card[data-target="true"] {
+  border-color: var(--accent);
+  background: rgba(0, 212, 106, 0.06);
+}
+.pick-card[data-current="true"] {
+  border-color: #232323;
+  background: #0d0d12;
+}
+.pick-card:disabled {
+  opacity: 0.18;
+  cursor: not-allowed;
+}

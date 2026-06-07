@@ -105,18 +105,22 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex gap-1.5">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="block h-1.5 w-1.5 rounded-full animate-pulse"
-                style={{ background: "var(--muted)", animationDelay: `${i * 150}ms` }}
-              />
-            ))}
-          </div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Loading…</p>
+      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="animate-pulse"
+              style={{
+                display: "block",
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "#333",
+                animationDelay: `${i * 150}ms`,
+              }}
+            />
+          ))}
         </div>
       </main>
     );
@@ -125,151 +129,180 @@ export default function DashboardPage() {
   const isActive = tournament?.status === "active";
 
   return (
-    <main className="min-h-screen px-4 py-12">
-      <div className="mx-auto max-w-xl">
+    <main style={{ minHeight: "100vh", padding: "0 24px" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
-        {/* Header */}
-        <div className="mb-10 flex items-start justify-between gap-4">
-          <div>
-            <p
-              className="mb-1 text-xs font-semibold uppercase tracking-widest"
-              style={{ color: "var(--accent)" }}
-            >
-              Welcome back
-            </p>
-            <h1 className="font-display text-5xl tracking-wide text-white">
-              {displayName.toUpperCase()}
-            </h1>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-              {email}
-            </p>
-          </div>
-
-          {tournament && (
-            <div
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
-              style={{
-                background: isActive ? "rgba(0,255,135,0.12)" : "rgba(255,255,255,0.05)",
-                color: isActive ? "var(--accent)" : "var(--muted)",
-                border: `1px solid ${isActive ? "rgba(0,255,135,0.25)" : "rgba(255,255,255,0.08)"}`,
-              }}
-            >
-              {tournament.status}
-            </div>
-          )}
+        {/* Jersey nameplate — massive username */}
+        <div style={{ paddingTop: 64, paddingBottom: 40, borderBottom: "1px solid var(--border)" }}>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              color: "var(--accent)",
+              marginBottom: 8,
+            }}
+          >
+            Your Dashboard
+          </p>
+          <h1
+            style={{
+              fontFamily: "var(--font-bebas)",
+              fontSize: "clamp(80px, 18vw, 160px)",
+              letterSpacing: "0.03em",
+              lineHeight: 0.86,
+              color: "white",
+              margin: 0,
+            }}
+          >
+            {displayName.toUpperCase()}
+          </h1>
+          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12 }}>{email}</p>
         </div>
 
-        {/* Points card */}
+        {/* Points — no card, just section with background tone */}
         <div
-          className="mb-6 rounded-2xl px-8 py-8 text-center"
           style={{
-            background: "linear-gradient(135deg, rgba(0,255,135,0.07) 0%, rgba(0,255,135,0.02) 100%)",
-            border: "1px solid rgba(0,255,135,0.14)",
+            background: "var(--surface)",
+            margin: "0 -24px",
+            padding: "36px 24px",
+            borderBottom: "1px solid var(--border)",
           }}
         >
-          <p
-            className="mb-3 text-xs font-semibold uppercase tracking-widest"
-            style={{ color: "var(--muted)" }}
-          >
-            Total Points
-          </p>
-          <p
-            className="font-display text-8xl leading-none tracking-wider"
-            style={{ color: "var(--accent)" }}
-          >
-            {totalPoints !== null ? totalPoints.toLocaleString() : "—"}
-          </p>
-          {tournament && (
-            <p className="mt-4 text-sm" style={{ color: "var(--muted)" }}>
-              {tournament.name}
-            </p>
-          )}
-          {totalPoints === null && !picksSummary && tournament && (
-            <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-              Submit your picks to get on the board
-            </p>
-          )}
+          <div style={{ maxWidth: 600, margin: "0 auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)", marginBottom: 8 }}>
+                Total Points
+              </p>
+              <p
+                style={{
+                  fontFamily: "var(--font-bebas)",
+                  fontSize: "clamp(64px, 12vw, 112px)",
+                  letterSpacing: "0.02em",
+                  lineHeight: 1,
+                  color: "var(--accent)",
+                  margin: 0,
+                }}
+              >
+                {totalPoints !== null ? totalPoints.toLocaleString() : "—"}
+              </p>
+            </div>
+            <div style={{ textAlign: "right", paddingBottom: 8 }}>
+              {tournament && (
+                <>
+                  <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{tournament.name}</p>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: isActive ? "var(--accent)" : "var(--muted)",
+                    }}
+                  >
+                    {tournament.status}
+                  </span>
+                </>
+              )}
+              {totalPoints === null && !picksSummary && tournament && (
+                <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                  Submit picks to appear
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Picks summary */}
+        {/* Picks summary — plain list, no card */}
         {picksSummary && (
-          <div
-            className="mb-6 rounded-2xl p-5"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <div className="mb-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-                Teams
-              </p>
-              <div className="flex flex-col gap-2">
-                {picksSummary.teams.map((team, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    {team.logo_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={team.logo_url} alt={team.name} className="h-5 w-5 flex-shrink-0 object-contain" />
-                    )}
-                    <span className="text-sm font-medium text-white">{team.name}</span>
-                    {team.country_code && (
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>{team.country_code}</span>
-                    )}
-                  </div>
-                ))}
+          <div style={{ padding: "36px 0", borderBottom: "1px solid var(--border)" }}>
+            <p style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)", marginBottom: 20 }}>
+              Your Picks
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 40px" }}>
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555", marginBottom: 10 }}>
+                  Teams
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {picksSummary.teams.map((team, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {team.logo_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={team.logo_url} alt={team.name} style={{ height: 16, width: 16, objectFit: "contain", flexShrink: 0 }} />
+                      )}
+                      <span style={{ fontSize: 13, color: "#e8e8ed" }}>{team.name}</span>
+                      {team.country_code && (
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>{team.country_code}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div
-              className="my-4"
-              style={{ borderTop: "1px solid var(--border)" }}
-            />
-
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-                Players
-              </p>
-              <div className="flex flex-col gap-2">
-                {picksSummary.players.map((player, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <span className="text-sm font-medium text-white">{player.name}</span>
-                    {player.position && (
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>{player.position}</span>
-                    )}
-                  </div>
-                ))}
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555", marginBottom: 10 }}>
+                  Players
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {picksSummary.players.map((player, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 13, color: "#e8e8ed" }}>{player.name}</span>
+                      {player.position && (
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>{player.position}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Nav cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link
-            href="/picks"
-            className="rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <div className="mb-3 text-3xl">⚽</div>
-            <p className="mb-1 text-base font-bold text-white">My Picks</p>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-              {picksSummary ? "View or swap your selections" : "Make your selections"}
-            </p>
-          </Link>
-
-          <Link
-            href="/leaderboard"
-            className="rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <div className="mb-3 text-3xl">🏆</div>
-            <p className="mb-1 text-base font-bold text-white">Leaderboard</p>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-              See how you rank
-            </p>
-          </Link>
+        {/* Nav links — simple, no cards */}
+        <div style={{ padding: "36px 0 64px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <Link
+              href="/picks"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "20px 0",
+                borderBottom: "1px solid var(--border)",
+                textDecoration: "none",
+              }}
+            >
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "white", margin: 0 }}>
+                  {picksSummary ? "My Picks" : "Make Picks"}
+                </p>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 0" }}>
+                  {picksSummary ? "View or swap your selections" : "Choose your teams and players"}
+                </p>
+              </div>
+              <span style={{ color: "var(--accent)", fontSize: 18, lineHeight: 1 }}>→</span>
+            </Link>
+            <Link
+              href="/leaderboard"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "20px 0",
+                borderBottom: "1px solid var(--border)",
+                textDecoration: "none",
+              }}
+            >
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "white", margin: 0 }}>Leaderboard</p>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 0" }}>See how you rank</p>
+              </div>
+              <span style={{ color: "var(--accent)", fontSize: 18, lineHeight: 1 }}>→</span>
+            </Link>
+          </div>
         </div>
 
-        <p className="mt-8 text-center text-xs" style={{ color: "var(--muted)" }}>
-          Signed in as {email}
-        </p>
       </div>
     </main>
   );
