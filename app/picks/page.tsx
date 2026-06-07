@@ -10,6 +10,7 @@ import {
   getUserPicks,
   swapTeamPick,
   swapPlayerPick,
+  updateLeaderboard,
 } from "@/lib/db";
 import type { UserPickRow } from "@/lib/db";
 
@@ -38,6 +39,14 @@ interface Player {
 interface Tournament {
   id: string;
   name: string;
+}
+
+function tierStyle(tier: number | string) {
+  const t = Number(tier);
+  if (t === 1) return { color: "#ffd700", bg: "rgba(255,215,0,0.1)", border: "rgba(255,215,0,0.25)", label: "GOLD" };
+  if (t === 2) return { color: "#b8bcc8", bg: "rgba(184,188,200,0.1)", border: "rgba(184,188,200,0.22)", label: "SILVER" };
+  if (t === 3) return { color: "#cd7f32", bg: "rgba(205,127,50,0.1)", border: "rgba(205,127,50,0.22)", label: "BRONZE" };
+  return { color: "rgba(240,240,245,0.35)", bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.1)", label: `TIER ${tier}` };
 }
 
 export default function PicksPage() {
@@ -150,6 +159,7 @@ export default function PicksPage() {
         ...[...selectedTeams].map((teamId) => addTeamPick(userPick.id, teamId)),
         ...[...selectedPlayers].map((playerId) => addPlayerPick(userPick.id, playerId)),
       ]);
+      await updateLeaderboard(userId, tournament.id, 0);
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Submission failed.");
@@ -212,8 +222,8 @@ export default function PicksPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-foreground/50">Loading…</p>
+      <main className="flex min-h-screen items-center justify-center">
+        <p className="text-sm" style={{ color: "var(--muted)" }}>Loading…</p>
       </main>
     );
   }
@@ -228,7 +238,7 @@ export default function PicksPage() {
     return acc;
   }, {});
 
-  // ── Existing picks: locked view + swap picker ─────────────────────────────────
+  // ── Existing picks ────────────────────────────────────────────────────────────
   if (existingPicks) {
     const pickedTeamIds = new Set(existingPicks.team_picks.map((tp) => tp.team_id));
     const pickedPlayerIds = new Set(existingPicks.player_picks.map((pp) => pp.player_id));
@@ -252,17 +262,24 @@ export default function PicksPage() {
         : null;
 
       return (
-        <main className="min-h-screen bg-background px-4 py-10">
+        <main className="min-h-screen px-4 py-12">
           <div className="mx-auto max-w-3xl">
             <div className="mb-8">
-              <h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">Swap Pick</h1>
-              <p className="text-sm text-foreground/50">
+              <button
+                onClick={cancelSwap}
+                className="mb-6 text-sm transition-opacity hover:opacity-70"
+                style={{ color: "var(--muted)" }}
+              >
+                ← Back to my picks
+              </button>
+              <h1 className="font-display text-5xl tracking-wide text-white">SWAP PICK</h1>
+              <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
                 Replacing{" "}
-                <span className="font-medium text-foreground/80">{currentName}</span>
+                <span className="font-semibold text-white">{currentName}</span>
                 {targetName && (
                   <>
-                    {" "}with{" "}
-                    <span className="font-medium text-foreground">{targetName}</span>
+                    {" "}→{" "}
+                    <span className="font-semibold" style={{ color: "var(--accent)" }}>{targetName}</span>
                   </>
                 )}
               </p>
@@ -270,120 +287,167 @@ export default function PicksPage() {
 
             {swappingTeamPickId && (
               <section className="mb-10">
-                {Object.entries(teamsByTier).map(([tier, tierTeams]) => (
-                  <div key={tier} className="mb-6">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-foreground/40">
-                      Tier {tier} &middot; {tierTeams[0].tier_multiplier}x multiplier
-                    </p>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {tierTeams.map((team) => {
-                        const isCurrent = team.id === swappingTeamCurrentId;
-                        const isOtherPick = !isCurrent && pickedTeamIds.has(team.id);
-                        const isTarget = team.id === swapTarget;
-                        return (
-                          <button
-                            key={team.id}
-                            type="button"
-                            onClick={() => {
-                              if (!isCurrent && !isOtherPick)
-                                setSwapTarget(isTarget ? null : team.id);
-                            }}
-                            disabled={isOtherPick}
-                            className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
-                              isCurrent
-                                ? "cursor-default border-foreground/30 bg-foreground/10"
-                                : isTarget
-                                  ? "border-foreground bg-foreground text-background"
-                                  : isOtherPick
-                                    ? "cursor-not-allowed border-foreground/10 opacity-30"
-                                    : "border-foreground/20 hover:border-foreground/40"
-                            }`}
-                          >
-                            {team.logo_url && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={team.logo_url}
-                                alt={team.name}
-                                className="h-7 w-7 flex-shrink-0 object-contain"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{team.name}</p>
-                              {team.country_code && (
-                                <p className="text-xs opacity-60">{team.country_code}</p>
+                {Object.entries(teamsByTier).map(([tier, tierTeams]) => {
+                  const ts = tierStyle(tier);
+                  return (
+                    <div key={tier} className="mb-8">
+                      <div className="mb-3 flex items-center gap-2">
+                        <span
+                          className="rounded-full px-3 py-1 text-xs font-bold tracking-widest"
+                          style={{ background: ts.bg, color: ts.color, border: `1px solid ${ts.border}` }}
+                        >
+                          {ts.label}
+                        </span>
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>
+                          {tierTeams[0].tier_multiplier}× multiplier
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {tierTeams.map((team) => {
+                          const isCurrent = team.id === swappingTeamCurrentId;
+                          const isOtherPick = !isCurrent && pickedTeamIds.has(team.id);
+                          const isTarget = team.id === swapTarget;
+                          return (
+                            <button
+                              key={team.id}
+                              type="button"
+                              onClick={() => {
+                                if (!isCurrent && !isOtherPick)
+                                  setSwapTarget(isTarget ? null : team.id);
+                              }}
+                              disabled={isOtherPick}
+                              className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
+                              style={{
+                                background: isCurrent
+                                  ? "rgba(255,255,255,0.04)"
+                                  : isTarget
+                                    ? "rgba(0,255,135,0.1)"
+                                    : isOtherPick
+                                      ? "rgba(255,255,255,0.02)"
+                                      : "var(--surface)",
+                                border: isCurrent
+                                  ? "1px solid rgba(255,255,255,0.12)"
+                                  : isTarget
+                                    ? "1px solid rgba(0,255,135,0.4)"
+                                    : isOtherPick
+                                      ? "1px solid rgba(255,255,255,0.04)"
+                                      : "1px solid var(--border)",
+                                opacity: isOtherPick ? 0.3 : 1,
+                                cursor: isCurrent ? "default" : isOtherPick ? "not-allowed" : "pointer",
+                                boxShadow: isTarget ? "0 0 16px rgba(0,255,135,0.1)" : "none",
+                              }}
+                            >
+                              {team.logo_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={team.logo_url} alt={team.name} className="h-8 w-8 flex-shrink-0 object-contain" />
                               )}
-                            </div>
-                            {isCurrent && (
-                              <span className="shrink-0 text-xs text-foreground/40">current</span>
-                            )}
-                          </button>
-                        );
-                      })}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-white">{team.name}</p>
+                                {team.country_code && (
+                                  <p className="text-xs" style={{ color: "var(--muted)" }}>{team.country_code}</p>
+                                )}
+                              </div>
+                              {isCurrent && (
+                                <span className="shrink-0 text-xs font-semibold" style={{ color: "var(--muted)" }}>current</span>
+                              )}
+                              {isTarget && (
+                                <span className="shrink-0 text-xs font-bold" style={{ color: "var(--accent)" }}>✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </section>
             )}
 
             {swappingPlayerPickId && (
               <section className="mb-10">
-                {Object.entries(playersByTier).map(([tier, tierPlayers]) => (
-                  <div key={tier} className="mb-6">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-foreground/40">
-                      Tier {tier} &middot; {tierPlayers[0].tier_multiplier}x multiplier
-                    </p>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {tierPlayers.map((player) => {
-                        const isCurrent = player.id === swappingPlayerCurrentId;
-                        const isOtherPick = !isCurrent && pickedPlayerIds.has(player.id);
-                        const isTarget = player.id === swapTarget;
-                        return (
-                          <button
-                            key={player.id}
-                            type="button"
-                            onClick={() => {
-                              if (!isCurrent && !isOtherPick)
-                                setSwapTarget(isTarget ? null : player.id);
-                            }}
-                            disabled={isOtherPick}
-                            className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
-                              isCurrent
-                                ? "cursor-default border-foreground/30 bg-foreground/10"
-                                : isTarget
-                                  ? "border-foreground bg-foreground text-background"
-                                  : isOtherPick
-                                    ? "cursor-not-allowed border-foreground/10 opacity-30"
-                                    : "border-foreground/20 hover:border-foreground/40"
-                            }`}
-                          >
-                            {player.photo_url && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={player.photo_url}
-                                alt={player.name}
-                                className="h-7 w-7 flex-shrink-0 rounded-full object-cover"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{player.name}</p>
-                              <p className="truncate text-xs opacity-60">
-                                {[player.position, player.team_name].filter(Boolean).join(" · ")}
-                              </p>
-                            </div>
-                            {isCurrent && (
-                              <span className="shrink-0 text-xs text-foreground/40">current</span>
-                            )}
-                          </button>
-                        );
-                      })}
+                {Object.entries(playersByTier).map(([tier, tierPlayers]) => {
+                  const ts = tierStyle(tier);
+                  return (
+                    <div key={tier} className="mb-8">
+                      <div className="mb-3 flex items-center gap-2">
+                        <span
+                          className="rounded-full px-3 py-1 text-xs font-bold tracking-widest"
+                          style={{ background: ts.bg, color: ts.color, border: `1px solid ${ts.border}` }}
+                        >
+                          {ts.label}
+                        </span>
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>
+                          {tierPlayers[0].tier_multiplier}× multiplier
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {tierPlayers.map((player) => {
+                          const isCurrent = player.id === swappingPlayerCurrentId;
+                          const isOtherPick = !isCurrent && pickedPlayerIds.has(player.id);
+                          const isTarget = player.id === swapTarget;
+                          return (
+                            <button
+                              key={player.id}
+                              type="button"
+                              onClick={() => {
+                                if (!isCurrent && !isOtherPick)
+                                  setSwapTarget(isTarget ? null : player.id);
+                              }}
+                              disabled={isOtherPick}
+                              className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
+                              style={{
+                                background: isCurrent
+                                  ? "rgba(255,255,255,0.04)"
+                                  : isTarget
+                                    ? "rgba(0,255,135,0.1)"
+                                    : isOtherPick
+                                      ? "rgba(255,255,255,0.02)"
+                                      : "var(--surface)",
+                                border: isCurrent
+                                  ? "1px solid rgba(255,255,255,0.12)"
+                                  : isTarget
+                                    ? "1px solid rgba(0,255,135,0.4)"
+                                    : isOtherPick
+                                      ? "1px solid rgba(255,255,255,0.04)"
+                                      : "1px solid var(--border)",
+                                opacity: isOtherPick ? 0.3 : 1,
+                                cursor: isCurrent ? "default" : isOtherPick ? "not-allowed" : "pointer",
+                                boxShadow: isTarget ? "0 0 16px rgba(0,255,135,0.1)" : "none",
+                              }}
+                            >
+                              {player.photo_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={player.photo_url} alt={player.name} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-white">{player.name}</p>
+                                <p className="truncate text-xs" style={{ color: "var(--muted)" }}>
+                                  {[player.position, player.team_name].filter(Boolean).join(" · ")}
+                                </p>
+                              </div>
+                              {isCurrent && (
+                                <span className="shrink-0 text-xs font-semibold" style={{ color: "var(--muted)" }}>current</span>
+                              )}
+                              {isTarget && (
+                                <span className="shrink-0 text-xs font-bold" style={{ color: "var(--accent)" }}>✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </section>
             )}
 
             {error && (
-              <p className="mb-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">{error}</p>
+              <p
+                className="mb-4 rounded-xl px-4 py-3 text-sm"
+                style={{ background: "rgba(255,60,60,0.1)", color: "#ff6b6b", border: "1px solid rgba(255,60,60,0.2)" }}
+              >
+                {error}
+              </p>
             )}
 
             <div className="flex gap-3">
@@ -391,7 +455,12 @@ export default function PicksPage() {
                 type="button"
                 onClick={cancelSwap}
                 disabled={swapping}
-                className="flex-1 rounded-md border border-foreground/20 py-2.5 text-sm font-semibold text-foreground transition-opacity hover:opacity-80 disabled:opacity-40"
+                className="flex-1 rounded-xl py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-40"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--muted)",
+                }}
               >
                 Cancel
               </button>
@@ -399,7 +468,12 @@ export default function PicksPage() {
                 type="button"
                 onClick={confirmSwap}
                 disabled={!swapTarget || swapping}
-                className="flex-1 rounded-md bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex-1 rounded-xl py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                style={{
+                  background: "var(--accent)",
+                  color: "#0a0a0f",
+                  boxShadow: swapTarget ? "0 4px 24px rgba(0,255,135,0.25)" : "none",
+                }}
               >
                 {swapping ? "Saving…" : "Confirm Swap"}
               </button>
@@ -419,38 +493,63 @@ export default function PicksPage() {
       .filter((pp): pp is { pickId: string; player: Player } => !!pp.player);
 
     return (
-      <main className="min-h-screen bg-background px-4 py-10">
+      <main className="min-h-screen px-4 py-12">
         <div className="mx-auto max-w-3xl">
-          <h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">Your Picks</h1>
-          <p className="mb-1 text-sm text-foreground/50">{tournament?.name}</p>
-          <p className="mb-8 text-sm font-medium text-foreground/70">Your picks are locked in.</p>
+          <div className="mb-2">
+            <p
+              className="mb-1 text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--accent)" }}
+            >
+              {tournament?.name}
+            </p>
+            <h1 className="font-display text-5xl tracking-wide text-white">YOUR PICKS</h1>
+          </div>
+
+          <div
+            className="mb-10 mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
+            style={{
+              background: "rgba(0,255,135,0.08)",
+              border: "1px solid rgba(0,255,135,0.18)",
+              color: "var(--accent)",
+            }}
+          >
+            <span>🔒</span>
+            Your picks are locked in
+          </div>
 
           <section className="mb-10">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Teams</h2>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <h2 className="mb-4 font-display text-2xl tracking-wide text-white">TEAMS</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {pickedTeams.map(({ pickId, team }) => (
                 <div
                   key={pickId}
-                  className="flex items-center gap-3 rounded-lg border border-foreground/20 px-4 py-3"
+                  className="flex flex-col gap-3 rounded-xl p-4"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                  }}
                 >
-                  {team.logo_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={team.logo_url}
-                      alt={team.name}
-                      className="h-7 w-7 flex-shrink-0 object-contain"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{team.name}</p>
-                    {team.country_code && (
-                      <p className="text-xs text-foreground/50">{team.country_code}</p>
+                  <div className="flex items-center gap-3">
+                    {team.logo_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={team.logo_url} alt={team.name} className="h-10 w-10 flex-shrink-0 object-contain" />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">{team.name}</p>
+                      {team.country_code && (
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>{team.country_code}</p>
+                      )}
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => startTeamSwap(pickId)}
-                    className="shrink-0 text-xs text-foreground/40 transition-colors hover:text-foreground"
+                    className="w-full rounded-full py-1.5 text-xs font-bold uppercase tracking-wider transition-all hover:opacity-80"
+                    style={{
+                      background: "rgba(255,107,53,0.12)",
+                      color: "var(--orange)",
+                      border: "1px solid rgba(255,107,53,0.25)",
+                    }}
                   >
                     Swap
                   </button>
@@ -460,31 +559,36 @@ export default function PicksPage() {
           </section>
 
           <section>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Players</h2>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <h2 className="mb-4 font-display text-2xl tracking-wide text-white">PLAYERS</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {pickedPlayers.map(({ pickId, player }) => (
                 <div
                   key={pickId}
-                  className="flex items-center gap-3 rounded-lg border border-foreground/20 px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl p-4"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                  }}
                 >
                   {player.photo_url && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={player.photo_url}
-                      alt={player.name}
-                      className="h-7 w-7 flex-shrink-0 rounded-full object-cover"
-                    />
+                    <img src={player.photo_url} alt={player.name} className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{player.name}</p>
-                    <p className="truncate text-xs text-foreground/50">
+                    <p className="truncate text-sm font-bold text-white">{player.name}</p>
+                    <p className="truncate text-xs" style={{ color: "var(--muted)" }}>
                       {[player.position, player.team_name].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => startPlayerSwap(pickId)}
-                    className="shrink-0 text-xs text-foreground/40 transition-colors hover:text-foreground"
+                    className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all hover:opacity-80"
+                    style={{
+                      background: "rgba(255,107,53,0.12)",
+                      color: "var(--orange)",
+                      border: "1px solid rgba(255,107,53,0.25)",
+                    }}
                   >
                     Swap
                   </button>
@@ -506,142 +610,206 @@ export default function PicksPage() {
     selectedPlayers.size === MAX_PLAYERS;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <main className="min-h-screen px-4 py-12">
       <div className="mx-auto max-w-3xl">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">Make Your Picks</h1>
-        <p className="mb-8 text-sm text-foreground/50">
-          {tournament ? tournament.name : "No active tournament found."}
-        </p>
+        <div className="mb-10">
+          <p
+            className="mb-1 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--accent)" }}
+          >
+            {tournament ? tournament.name : "No active tournament"}
+          </p>
+          <h1 className="font-display text-5xl tracking-wide text-white">MAKE YOUR PICKS</h1>
+        </div>
 
         {/* Teams */}
-        <section className="mb-10">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Teams</h2>
-            <span className="text-sm text-foreground/50">
-              {selectedTeams.size} / {MAX_TEAMS} selected
+        <section className="mb-12">
+          <div className="mb-6 flex items-baseline justify-between">
+            <h2 className="font-display text-3xl tracking-wide text-white">TEAMS</h2>
+            <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--muted)" }}>
+              <span style={{ color: selectedTeams.size === MAX_TEAMS ? "var(--accent)" : "inherit" }}>
+                {selectedTeams.size}
+              </span>{" "}
+              / {MAX_TEAMS}
             </span>
           </div>
 
           {teams.length === 0 ? (
-            <p className="text-sm text-foreground/40">No teams available yet.</p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>No teams available yet.</p>
           ) : (
-            Object.entries(teamsByTier).map(([tier, tierTeams]) => (
-              <div key={tier} className="mb-6">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-foreground/40">
-                  Tier {tier} &middot; {tierTeams[0].tier_multiplier}x multiplier
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {tierTeams.map((team) => {
-                    const selected = selectedTeams.has(team.id);
-                    const disabled = !selected && selectedTeams.size >= MAX_TEAMS;
-                    return (
-                      <button
-                        key={team.id}
-                        type="button"
-                        onClick={() => toggleTeam(team.id)}
-                        disabled={disabled}
-                        className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
-                          selected
-                            ? "border-foreground bg-foreground text-background"
-                            : disabled
-                              ? "cursor-not-allowed border-foreground/10 opacity-40"
-                              : "border-foreground/20 hover:border-foreground/40"
-                        }`}
-                      >
-                        {team.logo_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={team.logo_url}
-                            alt={team.name}
-                            className="h-7 w-7 flex-shrink-0 object-contain"
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{team.name}</p>
-                          {team.country_code && (
-                            <p className="text-xs opacity-60">{team.country_code}</p>
+            Object.entries(teamsByTier).map(([tier, tierTeams]) => {
+              const ts = tierStyle(tier);
+              return (
+                <div key={tier} className="mb-8">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span
+                      className="rounded-full px-3 py-1 text-xs font-bold tracking-widest"
+                      style={{ background: ts.bg, color: ts.color, border: `1px solid ${ts.border}` }}
+                    >
+                      {ts.label}
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {tierTeams[0].tier_multiplier}× multiplier
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {tierTeams.map((team) => {
+                      const selected = selectedTeams.has(team.id);
+                      const disabled = !selected && selectedTeams.size >= MAX_TEAMS;
+                      return (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() => toggleTeam(team.id)}
+                          disabled={disabled}
+                          className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
+                          style={{
+                            background: selected ? "rgba(0,255,135,0.1)" : disabled ? "rgba(255,255,255,0.02)" : "var(--surface)",
+                            border: selected
+                              ? "1px solid rgba(0,255,135,0.4)"
+                              : disabled
+                                ? "1px solid rgba(255,255,255,0.04)"
+                                : "1px solid var(--border)",
+                            opacity: disabled ? 0.35 : 1,
+                            cursor: disabled ? "not-allowed" : "pointer",
+                            boxShadow: selected ? "0 0 20px rgba(0,255,135,0.08)" : "none",
+                          }}
+                        >
+                          {team.logo_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={team.logo_url} alt={team.name} className="h-8 w-8 flex-shrink-0 object-contain" />
                           )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="truncate text-sm font-semibold"
+                              style={{ color: selected ? "var(--accent)" : "white" }}
+                            >
+                              {team.name}
+                            </p>
+                            {team.country_code && (
+                              <p className="text-xs" style={{ color: "var(--muted)" }}>{team.country_code}</p>
+                            )}
+                          </div>
+                          {selected && (
+                            <span className="shrink-0 text-sm font-bold" style={{ color: "var(--accent)" }}>✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </section>
 
         {/* Players */}
         <section className="mb-10">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Players</h2>
-            <span className="text-sm text-foreground/50">
-              {selectedPlayers.size} / {MAX_PLAYERS} selected
+          <div className="mb-6 flex items-baseline justify-between">
+            <h2 className="font-display text-3xl tracking-wide text-white">PLAYERS</h2>
+            <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--muted)" }}>
+              <span style={{ color: selectedPlayers.size === MAX_PLAYERS ? "var(--accent)" : "inherit" }}>
+                {selectedPlayers.size}
+              </span>{" "}
+              / {MAX_PLAYERS}
             </span>
           </div>
 
           {players.length === 0 ? (
-            <p className="text-sm text-foreground/40">No players available yet.</p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>No players available yet.</p>
           ) : (
-            Object.entries(playersByTier).map(([tier, tierPlayers]) => (
-              <div key={tier} className="mb-6">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-foreground/40">
-                  Tier {tier} &middot; {tierPlayers[0].tier_multiplier}x multiplier
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {tierPlayers.map((player) => {
-                    const selected = selectedPlayers.has(player.id);
-                    const disabled = !selected && selectedPlayers.size >= MAX_PLAYERS;
-                    return (
-                      <button
-                        key={player.id}
-                        type="button"
-                        onClick={() => togglePlayer(player.id)}
-                        disabled={disabled}
-                        className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
-                          selected
-                            ? "border-foreground bg-foreground text-background"
-                            : disabled
-                              ? "cursor-not-allowed border-foreground/10 opacity-40"
-                              : "border-foreground/20 hover:border-foreground/40"
-                        }`}
-                      >
-                        {player.photo_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={player.photo_url}
-                            alt={player.name}
-                            className="h-7 w-7 flex-shrink-0 rounded-full object-cover"
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{player.name}</p>
-                          <p className="truncate text-xs opacity-60">
-                            {[player.position, player.team_name].filter(Boolean).join(" · ")}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
+            Object.entries(playersByTier).map(([tier, tierPlayers]) => {
+              const ts = tierStyle(tier);
+              return (
+                <div key={tier} className="mb-8">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span
+                      className="rounded-full px-3 py-1 text-xs font-bold tracking-widest"
+                      style={{ background: ts.bg, color: ts.color, border: `1px solid ${ts.border}` }}
+                    >
+                      {ts.label}
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {tierPlayers[0].tier_multiplier}× multiplier
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {tierPlayers.map((player) => {
+                      const selected = selectedPlayers.has(player.id);
+                      const disabled = !selected && selectedPlayers.size >= MAX_PLAYERS;
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          onClick={() => togglePlayer(player.id)}
+                          disabled={disabled}
+                          className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
+                          style={{
+                            background: selected ? "rgba(0,255,135,0.1)" : disabled ? "rgba(255,255,255,0.02)" : "var(--surface)",
+                            border: selected
+                              ? "1px solid rgba(0,255,135,0.4)"
+                              : disabled
+                                ? "1px solid rgba(255,255,255,0.04)"
+                                : "1px solid var(--border)",
+                            opacity: disabled ? 0.35 : 1,
+                            cursor: disabled ? "not-allowed" : "pointer",
+                            boxShadow: selected ? "0 0 20px rgba(0,255,135,0.08)" : "none",
+                          }}
+                        >
+                          {player.photo_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={player.photo_url} alt={player.name} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="truncate text-sm font-semibold"
+                              style={{ color: selected ? "var(--accent)" : "white" }}
+                            >
+                              {player.name}
+                            </p>
+                            <p className="truncate text-xs" style={{ color: "var(--muted)" }}>
+                              {[player.position, player.team_name].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+                          {selected && (
+                            <span className="shrink-0 text-sm font-bold" style={{ color: "var(--accent)" }}>✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </section>
 
         {error && (
-          <p className="mb-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">{error}</p>
+          <p
+            className="mb-4 rounded-xl px-4 py-3 text-sm"
+            style={{ background: "rgba(255,60,60,0.1)", color: "#ff6b6b", border: "1px solid rgba(255,60,60,0.2)" }}
+          >
+            {error}
+          </p>
         )}
 
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded-xl py-4 text-sm font-bold uppercase tracking-widest transition-all disabled:cursor-not-allowed disabled:opacity-40"
+          style={{
+            background: canSubmit ? "var(--accent)" : "rgba(255,255,255,0.06)",
+            color: canSubmit ? "#0a0a0f" : "var(--muted)",
+            border: canSubmit ? "none" : "1px solid rgba(255,255,255,0.08)",
+            boxShadow: canSubmit ? "0 4px 32px rgba(0,255,135,0.25)" : "none",
+          }}
         >
           {submitting
             ? "Submitting…"
-            : `Submit Picks${selectedTeams.size < MAX_TEAMS || selectedPlayers.size < MAX_PLAYERS ? ` (${MAX_TEAMS - selectedTeams.size} teams, ${MAX_PLAYERS - selectedPlayers.size} players remaining)` : ""}`}
+            : canSubmit
+              ? "Submit Picks"
+              : `${MAX_TEAMS - selectedTeams.size} team${MAX_TEAMS - selectedTeams.size !== 1 ? "s" : ""} · ${MAX_PLAYERS - selectedPlayers.size} player${MAX_PLAYERS - selectedPlayers.size !== 1 ? "s" : ""} remaining`}
         </button>
       </div>
     </main>

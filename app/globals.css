@@ -1,26 +1,54 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #0a0a0f;
+  --color-surface: #12121a;
+  --color-surface-2: #1c1c2e;
+  --color-accent: #00ff87;
+  --color-orange: #ff6b35;
+  --color-foreground: #f0f0f5;
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bebas);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --accent: #00ff87;
+  --orange: #ff6b35;
+  --surface: #12121a;
+  --surface-2: #1c1c2e;
+  --border: rgba(255, 255, 255, 0.07);
+  --muted: rgba(240, 240, 245, 0.42);
+  --gold: #ffd700;
+  --silver: #b8bcc8;
+  --bronze: #cd7f32;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #0a0a0f;
+  background-image:
+    radial-gradient(ellipse at 15% 65%, rgba(0, 255, 135, 0.045) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(255, 107, 53, 0.035) 0%, transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 59px,
+      rgba(255, 255, 255, 0.016) 59px,
+      rgba(255, 255, 255, 0.016) 60px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 59px,
+      rgba(255, 255, 255, 0.016) 59px,
+      rgba(255, 255, 255, 0.016) 60px
+    );
+  background-attachment: fixed;
+  color: #f0f0f5;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  min-height: 100vh;
 }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.14); }
